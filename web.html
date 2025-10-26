@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Monitor Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .patient-info {
+            text-align: center;
+        }
+
+        .patient-number {
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .patient-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .bpm-display {
+            position: relative;
+            height: 120px;
+            margin: 20px 0;
+        }
+
+        .bpm-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: conic-gradient(#ff6b6b 0% 100%, #e9ecef 100% 100%);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .bpm-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            z-index: 2;
+        }
+
+        .heartbeat-animation {
+            font-size: 24px;
+            color: #ff6b6b;
+            animation: heartbeat 1.5s ease-in-out infinite;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .chart-container {
+            height: 200px;
+            margin: 20px 0;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+
+        .status-text {
+            color: #666;
+            font-size: 14px;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: #667eea;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .last-update {
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .refresh-info {
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        
+        .data-history {
+            margin-top: 15px;
+        }
+        
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 12px;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .control-panel {
+            margin-top: 20px;
+        }
+        
+        .control-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .control-section {
+            margin-bottom: 20px;
+        }
+        
+        .control-section h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #667eea;
+            font-size: 16px;
+        }
+        
+        .serial-output {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .serial-line {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        
+        .command-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .command-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        
+        .command-input button {
+            padding: 10px 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .connected {
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+        
+        .disconnected {
+            background: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-heartbeat"></i> Health Monitor</h1>
+            <p>Real-time Patient Vital Signs & Control</p>
+        </div>
+
+        <div class="card patient-info">
+            <div class="patient-number" id="patientNumber">--</div>
+            <div class="patient-label">CURRENT PATIENT</div>
+            
+            <div class="connection-status">
+                <div class="connection-dot connected" id="connectionDot"></div>
+                <div class="status-text" id="statusText">Connected to Arduino</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="heartbeat-animation">
+                        <i class="fas fa-heart"></i>
+                    </div>
+                    <div class="stat-value" id="bpmValue">--</div>
+                    <div class="stat-label">HEART RATE (BPM)</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-value" id="heartbeatReading">--</div>
+                    <div class="stat-label">HEARTBEAT READING</div>
+                </div>
+            </div>
+
+            <div class="bpm-display">
+                <div class="bpm-circle">
+                    <div class="bpm-value" id="bpmCircle">--</div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="heartRateChart"></canvas>
+            </div>
+
+            <div class="last-update">
+                Last updated: <span id="lastUpdate">Never</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3 style="text-align: center; margin-bottom: 15px;">Recent Data</h3>
+            <div class="data-history" id="dataHistory">
+                <div class="loading">Loading data...</div>
+            </div>
+        </div>
+        
+        <div class="card control-panel">
+            <h3 style="text-align: center; margin-bottom: 15px;">Arduino Controls</h3>
+            
+            <div class="control-section">
+                
+            
+            
+            
+         
+        <div class="controls">
+            <button class="btn" onclick="fetchData()">
+                <i class="fas fa-sync-alt"></i> Refresh Data
+            </button>
+            <button class="btn btn-secondary" onclick="toggleAutoRefresh()">
+                <i class="fas fa-clock"></i> <span id="autoRefreshText">Auto: On</span>
+            </button>
+        </div>
+
+        <div class="refresh-info">
+            Auto-refresh every <span id="refreshInterval">30</span> seconds
+        </div>
+    </div>
+
+    <script>
+        // ThingSpeak Configuration
+        const THINGSPEAK_CHANNEL_ID = "3132500";
+        const THINGSPEAK_READ_API_KEY = "KPO7BC7LAKSBV3IN";
+        const THINGSPEAK_URL = `https://api.thingspeak.com/channels/${THINGSPEAK_CHANNEL_ID}/feeds.json?api_key=${THINGSPEAK_READ_API_KEY}&results=10`;
+
+        // WebSocket/HTTP server configuration for Arduino control
+        // Note: You'll need to set up a simple server to relay commands to Arduino
+        const SERVER_URL = "http://localhost:5000"; // Change this to your server URL
+        
+        // Chart configuration
+        let heartRateChart;
+        let autoRefresh = true;
+        let refreshInterval = 30000; // 30 seconds
+        let refreshTimer;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChart();
+            fetchData();
+            startAutoRefresh();
+            // Uncomment when you have server set up:
+            // connectToServer();
+        });
+
+        function initializeChart() {
+            const ctx = document.getElementById('heartRateChart').getContext('2d');
+            heartRateChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Heart Rate (BPM)',
+                        data: [],
+                        borderColor: '#ff6b6b',
+                        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            min: 40,
+                            max: 120,
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        async function fetchData() {
+            try {
+                showLoading();
+                
+                const response = await fetch(THINGSPEAK_URL);
+                const data = await response.json();
+                
+                if (data.feeds && data.feeds.length > 0) {
+                    const latestFeed = data.feeds[data.feeds.length - 1];
+                    updateDashboard(latestFeed);
+                    updateChart(data.feeds);
+                    updateHistory(data.feeds);
+                    hideError();
+                } else {
+                    showError('No data available from ThingSpeak. Make sure your Arduino is sending data.');
+                }
+                
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                showError('Failed to fetch data from ThingSpeak. Check your internet connection.');
+            }
+        }
+
+        function updateDashboard(feed) {
+            // Update patient number
+            document.getElementById('patientNumber').textContent = feed.field1 || '--';
+            
+            // Update BPM
+            const bpm = feed.field2 || '--';
+            document.getElementById('bpmValue').textContent = bpm;
+            document.getElementById('bpmCircle').textContent = bpm;
+            
+            // Update heartbeat reading
+            document.getElementById('heartbeatReading').textContent = feed.field3 || '--';
+            
+            // Update last update time
+            const updateTime = new Date(feed.created_at).toLocaleTimeString();
+            document.getElementById('lastUpdate').textContent = updateTime;
+            
+            // Update BPM circle color based on value
+            updateBpmColor(bpm);
+        }
+        
+        function updateHistory(feeds) {
+            const historyContainer = document.getElementById('dataHistory');
+            historyContainer.innerHTML = '';
+            
+            // Show last 5 entries in reverse order (newest first)
+            const recentFeeds = feeds.slice(-5).reverse();
+            
+            if (recentFeeds.length === 0) {
+                historyContainer.innerHTML = '<div class="loading">No data available</div>';
+                return;
+            }
+            
+            recentFeeds.forEach(feed => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item';
+                
+                const time = new Date(feed.created_at).toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                historyItem.innerHTML = `
+                    <span>Patient ${feed.field1 || '--'}</span>
+                    <span>BPM: ${feed.field2 || '--'}</span>
+                    <span>${time}</span>
+                `;
+                
+                historyContainer.appendChild(historyItem);
+            });
+        }
+
+        function updateBpmColor(bpm) {
+            const bpmCircle = document.querySelector('.bpm-circle');
+            if (bpm === '--') return;
+            
+            const bpmValue = parseInt(bpm);
+            let color;
+            
+            if (bpmValue < 60) {
+                color = '#4fc3f7'; // Blue for low
+            } else if (bpmValue >= 60 && bpmValue <= 100) {
+                color = '#4CAF50'; // Green for normal
+            } else {
+                color = '#ff6b6b'; // Red for high
+            }
+            
+            bpmCircle.style.background = `conic-gradient(${color} 0% 100%, #e9ecef 100% 100%)`;
+        }
+
+        function updateChart(feeds) {
+            const labels = [];
+            const data = [];
+
+            feeds.forEach(feed => {
+                if (feed.field2) {
+                    const time = new Date(feed.created_at).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                    labels.push(time);
+                    data.push(parseInt(feed.field2));
+                }
+            });
+
+            heartRateChart.data.labels = labels;
+            heartRateChart.data.datasets[0].data = data;
+            heartRateChart.update();
+        }
+
+        // Arduino Control Functions
+        function sendCommand(command) {
+            addToSerialOutput(`>> Sending command: ${command}`);
+            
+            // For now, we'll simulate the response
+            // In a real implementation, you would send this to your server
+            // which would then forward it to the Arduino
+            
+            simulateArduinoResponse(command);
+            
+            // Uncomment when you have server set up:
+            /*
+            fetch(`${SERVER_URL}/send-command`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ command: command })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addToSerialOutput(`<< Command sent successfully: ${command}`);
+                    showSuccess(`Command "${command}" sent to Arduino`);
+                } else {
+                    addToSerialOutput(`<< Error sending command: ${data.error}`);
+                    showError(`Failed to send command: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                addToSerialOutput(`<< Connection error: ${error}`);
+                showError('Failed to connect to control server');
+            });
+            */
+        }
+        
+        function sendCustomCommand() {
+            const commandInput = document.getElementById('customCommand');
+            const command = commandInput.value.trim().toUpperCase();
+            
+            if (command) {
+                sendCommand(command);
+                commandInput.value = '';
+            }
+        }
+        
+        function simulateArduinoResponse(command) {
+            // Simulate Arduino responses for demonstration
+            setTimeout(() => {
+                let response = "";
+                
+                switch(command) {
+                    case 'R':
+                        response = "🔄 Patient counter reset to 0";
+                        showSuccess("Patient counter has been reset");
+                        break;
+                    case 'S':
+                        response = "📊 SYSTEM STATUS: Active | Patients: 8 | Sensor: OK";
+                        break;
+                    case 'D':
+                        response = "🔧 DEBUG MODE: Enabled | Verbose output active";
+                        break;
+                    case 'C':
+                        response = "🧹 Display cleared | System ready";
+                        break;
+                    default:
+                        response = `❓ Unknown command: ${command}`;
+                }
+                
+                addToSerialOutput(`<< Arduino: ${response}`);
+            }, 500);
+        }
+        
+        function addToSerialOutput(message) {
+            const output = document.getElementById('serialOutput');
+            const line = document.createElement('div');
+            line.className = 'serial-line';
+            line.textContent = message;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function startAutoRefresh() {
+            if (autoRefresh) {
+                refreshTimer = setInterval(() => {
+                    if (autoRefresh) {
+                        fetchData();
+                    }
+                }, refreshInterval);
+            }
+        }
+        
+        function stopAutoRefresh() {
+            if (refreshTimer) {
+                clearInterval(refreshTimer);
+            }
+        }
+
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            const autoRefreshText = document.getElementById('autoRefreshText');
+            autoRefreshText.textContent = autoRefresh ? 'Auto: On' : 'Auto: Off';
+            
+            if (autoRefresh) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('statusText').textContent = 'Updating data...';
+        }
+
+        function showError(message) {
+            // Create or update error message
+            let errorDiv = document.querySelector('.error');
+            if (!errorDiv) {
+                errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.card'));
+            }
+            errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            
+            document.getElementById('statusText').textContent = 'Connection Error';
+            document.getElementById('connectionDot').className = 'connection-dot disconnected';
+        }
+        
+        function showSuccess(message) {
+            // Create success message
+            let successDiv = document.querySelector('.success');
+            if (!successDiv) {
+                successDiv = document.createElement('div');
+                successDiv.className = 'success';
+                document.querySelector('.container').insertBefore(successDiv, document.querySelector('.card'));
+            }
+            successDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                if (successDiv.parentNode) {
+                    successDiv.parentNode.removeChild(successDiv);
+                }
+            }, 3000);
+        }
+        
+        function hideError() {
+            const errorDiv = document.querySelector('.error');
+            if (errorDiv) {
+                errorDiv.remove();
+            }
+            document.getElementById('statusText').textContent = 'Connected to Arduino';
+            document.getElementById('connectionDot').className = 'connection-dot connected';
+        }
+
+        // Handle Enter key in command input
+        document.getElementById('customCommand').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendCustomCommand();
+            }
+        });
+
+        // Handle visibility change - refresh when page becomes visible
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                fetchData();
+            }
+        });
+
+        // Add pull-to-refresh functionality for mobile
+        let touchStartY = 0;
+        document.addEventListener('touchstart', e => {
+            touchStartY = e.touches[0].clientY;
+        });
+
+        document.addEventListener('touchend', e => {
+            const touchEndY = e.changedTouches[0].clientY;
+            if (touchStartY - touchEndY > 50) { // Pull down threshold
+                fetchData();
+            }
+        });
+    </script>
+</body>
+</html>
