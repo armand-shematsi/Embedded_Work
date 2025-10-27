@@ -649,6 +649,7 @@
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', async function() {
+            console.log("Initializing application...");
             initializeChart();
             await initializeMLModel();
             fetchData();
@@ -913,7 +914,7 @@
             alert(details);
         }
 
-        // Existing functions (unchanged)
+        // Chart and Data Functions
         function initializeChart() {
             const ctx = document.getElementById('heartRateChart').getContext('2d');
             heartRateChart = new Chart(ctx, {
@@ -954,67 +955,313 @@
         async function fetchData() {
             try {
                 showLoading();
+                console.log("Fetching data from ThingSpeak...");
                 
                 const response = await fetch(THINGSPEAK_URL);
                 const data = await response.json();
+                console.log("ThingSpeak response:", data);
                 
                 if (data.feeds && data.feeds.length > 0) {
                     const latestFeed = data.feeds[data.feeds.length - 1];
+                    console.log("Latest feed:", latestFeed);
                     updateDashboard(latestFeed);
                     updateChart(data.feeds);
                     updateHistory(data.feeds);
                     
                     // Update ML prediction
                     const bpmData = data.feeds
-                        .filter(feed => feed.field2)
+                        .filter(feed => feed.field2 && !isNaN(parseInt(feed.field2)))
                         .map(feed => parseInt(feed.field2));
+                    
+                    console.log("BPM data for ML:", bpmData);
                     
                     if (bpmData.length >= 3) {
                         const prediction = await predictHeartCondition(bpmData);
+                        console.log("ML Prediction:", prediction);
                         updateMLPrediction(prediction);
                     }
                     
                     hideError();
                 } else {
-                    showError('No data available from ThingSpeak.');
+                    showError('No data available from ThingSpeak. Make sure your Arduino is sending data.');
                 }
                 
             } catch (error) {
                 console.error('Error fetching data:', error);
-                showError('Failed to fetch data from ThingSpeak.');
+                showError('Failed to fetch data from ThingSpeak. Check your internet connection.');
             }
         }
 
-        // ... (rest of the existing functions remain the same)
-        // [The remaining functions from the previous version are unchanged]
-        // Including: updateDashboard, updateHistory, updateBpmColor, updateChart,
-        // sendCommand, sendCustomCommand, simulateArduinoResponse, addToSerialOutput,
-        // startAutoRefresh, stopAutoRefresh, toggleAutoRefresh, showLoading, 
-        // showError, showSuccess, hideError, and event listeners
-
-        // Placeholder for the remaining functions - they remain exactly as in the previous version
         function updateDashboard(feed) {
+            // Update patient number
             document.getElementById('patientNumber').textContent = feed.field1 || '--';
+            
+            // Update BPM
             const bpm = feed.field2 || '--';
             document.getElementById('bpmValue').textContent = bpm;
             document.getElementById('bpmCircle').textContent = bpm;
+            
+            // Update heartbeat reading
             document.getElementById('heartbeatReading').textContent = feed.field3 || '--';
+            
+            // Update last update time
             const updateTime = new Date(feed.created_at).toLocaleTimeString();
             document.getElementById('lastUpdate').textContent = updateTime;
+            
+            // Update BPM circle color based on value
             updateBpmColor(bpm);
+        }
+        
+        function updateHistory(feeds) {
+            const historyContainer = document.getElementById('dataHistory');
+            historyContainer.innerHTML = '';
+            
+            // Show last 5 entries in reverse order (newest first)
+            const recentFeeds = feeds.slice(-5).reverse();
+            
+            if (recentFeeds.length === 0) {
+                historyContainer.innerHTML = '<div class="loading">No data available</div>';
+                return;
+            }
+            
+            recentFeeds.forEach(feed => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item';
+                
+                const time = new Date(feed.created_at).toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                historyItem.innerHTML = `
+                    <span>Patient ${feed.field1 || '--'}</span>
+                    <span>BPM: ${feed.field2 || '--'}</span>
+                    <span>${time}</span>
+                `;
+                
+                historyContainer.appendChild(historyItem);
+            });
         }
 
         function updateBpmColor(bpm) {
             const bpmCircle = document.querySelector('.bpm-circle');
             if (bpm === '--') return;
+            
             const bpmValue = parseInt(bpm);
-            let color = bpmValue < 60 ? '#4fc3f7' : 
-                       bpmValue <= 100 ? '#4CAF50' : '#ff6b6b';
+            let color;
+            
+            if (bpmValue < 60) {
+                color = '#4fc3f7'; // Blue for low
+            } else if (bpmValue >= 60 && bpmValue <= 100) {
+                color = '#4CAF50'; // Green for normal
+            } else {
+                color = '#ff6b6b'; // Red for high
+            }
+            
             bpmCircle.style.background = `conic-gradient(${color} 0% 100%, #e9ecef 100% 100%)`;
         }
 
-        // ... (include all other existing functions here)
+        function updateChart(feeds) {
+            const labels = [];
+            const data = [];
 
+            feeds.forEach(feed => {
+                if (feed.field2 && !isNaN(parseInt(feed.field2))) {
+                    const time = new Date(feed.created_at).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                    labels.push(time);
+                    data.push(parseInt(feed.field2));
+                }
+            });
+
+            heartRateChart.data.labels = labels;
+            heartRateChart.data.datasets[0].data = data;
+            heartRateChart.update();
+        }
+
+        // Arduino Control Functions
+        function sendCommand(command) {
+            addToSerialOutput(`>> Sending command: ${command}`);
+            
+            // For now, we'll simulate the response
+            // In a real implementation, you would send this to your server
+            // which would then forward it to the Arduino
+            
+            simulateArduinoResponse(command);
+        }
+        
+        function sendCustomCommand() {
+            const commandInput = document.getElementById('customCommand');
+            const command = commandInput.value.trim().toUpperCase();
+            
+            if (command) {
+                sendCommand(command);
+                commandInput.value = '';
+            }
+        }
+        
+        function simulateArduinoResponse(command) {
+            // Simulate Arduino responses for demonstration
+            setTimeout(() => {
+                let response = "";
+                
+                switch(command) {
+                    case 'R':
+                        response = "🔄 Patient counter reset to 0";
+                        showSuccess("Patient counter has been reset");
+                        break;
+                    case 'S':
+                        response = "📊 SYSTEM STATUS: Active | Patients: 8 | Sensor: OK";
+                        break;
+                    case 'D':
+                        response = "🔧 DEBUG MODE: Enabled | Verbose output active";
+                        break;
+                    case 'C':
+                        response = "🧹 Display cleared | System ready";
+                        break;
+                    default:
+                        response = `❓ Unknown command: ${command}`;
+                }
+                
+                addToSerialOutput(`<< Arduino: ${response}`);
+            }, 500);
+        }
+        
+        function addToSerialOutput(message) {
+            const output = document.getElementById('serialOutput');
+            const line = document.createElement('div');
+            line.className = 'serial-line';
+            line.textContent = message;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        // Auto-refresh Functions
+        function startAutoRefresh() {
+            if (autoRefresh) {
+                refreshTimer = setInterval(() => {
+                    if (autoRefresh) {
+                        fetchData();
+                    }
+                }, refreshInterval);
+            }
+        }
+        
+        function stopAutoRefresh() {
+            if (refreshTimer) {
+                clearInterval(refreshTimer);
+            }
+        }
+
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            const autoRefreshText = document.getElementById('autoRefreshText');
+            autoRefreshText.textContent = autoRefresh ? 'Auto: On' : 'Auto: Off';
+            
+            if (autoRefresh) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+        }
+
+        // UI Helper Functions
+        function showLoading() {
+            document.getElementById('statusText').textContent = 'Updating data...';
+        }
+
+        function showError(message) {
+            // Create or update error message
+            let errorDiv = document.querySelector('.error');
+            if (!errorDiv) {
+                errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.card'));
+            }
+            errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            
+            document.getElementById('statusText').textContent = 'Connection Error';
+            document.getElementById('connectionDot').className = 'connection-dot disconnected';
+        }
+        
+        function showSuccess(message) {
+            // Create success message
+            let successDiv = document.querySelector('.success');
+            if (!successDiv) {
+                successDiv = document.createElement('div');
+                successDiv.className = 'success';
+                document.querySelector('.container').insertBefore(successDiv, document.querySelector('.card'));
+            }
+            successDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                if (successDiv.parentNode) {
+                    successDiv.parentNode.removeChild(successDiv);
+                }
+            }, 3000);
+        }
+
+        function showWarning(message) {
+            // Create warning message
+            let warningDiv = document.querySelector('.warning');
+            if (!warningDiv) {
+                warningDiv = document.createElement('div');
+                warningDiv.className = 'warning';
+                document.querySelector('.container').insertBefore(warningDiv, document.querySelector('.card'));
+            }
+            warningDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                if (warningDiv.parentNode) {
+                    warningDiv.parentNode.removeChild(warningDiv);
+                }
+            }, 3000);
+        }
+        
+        function hideError() {
+            const errorDiv = document.querySelector('.error');
+            if (errorDiv) {
+                errorDiv.remove();
+            }
+            document.getElementById('statusText').textContent = 'Connected to Arduino';
+            document.getElementById('connectionDot').className = 'connection-dot connected';
+        }
+
+        // Event Listeners
+        document.getElementById('customCommand').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendCustomCommand();
+            }
+        });
+
+        // Handle visibility change - refresh when page becomes visible
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                fetchData();
+            }
+        });
+
+        // Add pull-to-refresh functionality for mobile
+        let touchStartY = 0;
+        document.addEventListener('touchstart', e => {
+            touchStartY = e.touches[0].clientY;
+        });
+
+        document.addEventListener('touchend', e => {
+            const touchEndY = e.changedTouches[0].clientY;
+            if (touchStartY - touchEndY > 50) { // Pull down threshold
+                fetchData();
+            }
+        });
+
+        // Initial debug
+        console.log("Health Monitor App initialized successfully");
+        console.log("ThingSpeak URL:", THINGSPEAK_URL);
     </script>
 </body>
 </html>
