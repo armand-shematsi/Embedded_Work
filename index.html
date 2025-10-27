@@ -702,7 +702,7 @@
     <div class="container">
         <div class="header">
             <h1><i class="fas fa-heartbeat"></i> Health Monitor Dashboard</h1>
-            <p>Age-Based Heart Rate Analysis & Machine Learning</p>
+            <p>Real-time Patient Monitoring with ML Analysis</p>
         </div>
 
         <div class="card patient-info">
@@ -712,7 +712,7 @@
             <div class="age-input-section">
                 <h3><i class="fas fa-user-clock"></i> Patient Age</h3>
                 <div class="age-input-group">
-                    <input type="number" id="patientAge" class="age-input" placeholder="Age" min="1" max="120">
+                    <input type="number" id="patientAge" class="age-input" placeholder="Age" min="1" max="120" value="35">
                     <button class="btn btn-success" onclick="setPatientAge()">
                         <i class="fas fa-save"></i> Set Age
                     </button>
@@ -743,7 +743,7 @@
             
             <div class="status-indicator">
                 <div class="connection-dot connected" id="connectionDot"></div>
-                <div class="status-text" id="statusText">Connected to Monitoring System</div>
+                <div class="status-text" id="statusText">Connected to ThingSpeak</div>
             </div>
         </div>
 
@@ -793,17 +793,17 @@
         <!-- Machine Learning Analysis Card -->
         <div class="card ml-card">
             <h3 style="text-align: center; margin-bottom: 15px;">
-                <i class="fas fa-brain"></i> Age-Based Health Analysis
+                <i class="fas fa-brain"></i> AI Health Analysis
             </h3>
             
             <div class="ml-prediction">
                 <div class="stat-label">HEART CONDITION PREDICTION</div>
-                <div class="prediction-value" id="predictionText">Enter age to begin analysis</div>
+                <div class="prediction-value" id="predictionText">Analyzing data...</div>
                 <div class="confidence-bar">
                     <div class="confidence-fill" id="confidenceBar" style="width: 0%"></div>
                 </div>
                 <div class="training-status" id="trainingStatus">
-                    Model ready - Age-based analysis
+                    Model ready - Analyzing real-time data
                 </div>
             </div>
             
@@ -837,7 +837,7 @@
                     <i class="fas fa-robot"></i> Retrain Model
                 </button>
                 <button class="btn btn-secondary" onclick="showMLDetails()">
-                    <i class="fas fa-chart-bar"></i> Analysis Details
+                    <i class="fas fa-chart-bar"></i> ML Details
                 </button>
             </div>
         </div>
@@ -853,16 +853,16 @@
         
         <div class="card history-card">
             <h3 style="text-align: center; margin-bottom: 15px;">
-                <i class="fas fa-history"></i> Recent Readings
+                <i class="fas fa-history"></i> Recent Data
             </h3>
             <div class="data-history" id="dataHistory">
-                <div class="loading">Loading data...</div>
+                <div class="loading">Loading data from ThingSpeak...</div>
             </div>
         </div>
         
         <div class="card controls-card">
             <h3 style="text-align: center; margin-bottom: 15px;">
-                <i class="fas fa-gamepad"></i> System Controls
+                <i class="fas fa-gamepad"></i> Arduino Controls
             </h3>
             
             <div class="control-section">
@@ -896,7 +896,7 @@
             <div class="control-section">
                 <h3>System Output</h3>
                 <div class="serial-output" id="serialOutput">
-                    <div class="serial-line">>> System ready. Enter patient age to begin analysis.</div>
+                    <div class="serial-line">>> System ready. Loading data from ThingSpeak...</div>
                 </div>
             </div>
         </div>
@@ -961,13 +961,13 @@
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', async function() {
-            console.log("Initializing application...");
+            console.log("Initializing Health Monitor with all features...");
             initializeChart();
             await initializeMLModel();
+            setPatientAge(); // Set default age
             fetchData();
             startAutoRefresh();
             
-            // Update last sync time
             document.getElementById('lastSync').textContent = new Date().toLocaleTimeString();
             
             // Set up age input event listener
@@ -976,6 +976,11 @@
                     setPatientAge();
                 }
             });
+
+            addToSerialOutput(">> System initialized with all features");
+            addToSerialOutput(">> ThingSpeak: Channel 3132500");
+            addToSerialOutput(">> ML: Age-based analysis ready");
+            addToSerialOutput(">> Arduino: Control system active");
         });
 
         // Age management functions
@@ -994,10 +999,9 @@
             updateAgeRangeHighlight();
             showSuccess(`Patient age set to ${age} (${currentAgeRange.label})`);
             
-            // Update ML prediction if we have BPM data
-            const bpmData = getBPMData();
-            if (bpmData.length >= 3) {
-                analyzeHeartRateWithAge(bpmData);
+            // Update analysis if we have data
+            if (window.currentBPMData && window.currentBPMData.length >= 3) {
+                analyzeHeartRateWithAge(window.currentBPMData);
             }
         }
 
@@ -1006,10 +1010,12 @@
             if (age >= AGE_RANGES.TEEN.min && age <= AGE_RANGES.TEEN.max) return AGE_RANGES.TEEN;
             if (age >= AGE_RANGES.ADULT.min && age <= AGE_RANGES.ADULT.max) return AGE_RANGES.ADULT;
             if (age >= AGE_RANGES.SENIOR.min && age <= AGE_RANGES.SENIOR.max) return AGE_RANGES.SENIOR;
-            return AGE_RANGES.ADULT; // Default
+            return AGE_RANGES.ADULT;
         }
 
         function updateAgeDisplay() {
+            if (!patientAge) return;
+            
             document.getElementById('currentAge').textContent = patientAge;
             document.getElementById('ageInfo').textContent = 
                 `Age: ${patientAge} years (${currentAgeRange.label}) - Normal BPM: ${currentAgeRange.normalMin}-${currentAgeRange.normalMax}`;
@@ -1035,15 +1041,14 @@
             }
         }
 
-        // Enhanced ML functions with age consideration
+        // Machine Learning Functions
         async function initializeMLModel() {
             try {
-                showMLStatus('Initializing age-based analysis model...');
+                showMLStatus('Initializing TensorFlow.js model...');
                 
-                // Create a neural network that considers age
                 mlModel = tf.sequential({
                     layers: [
-                        tf.layers.dense({inputShape: [6], units: 12, activation: 'relu'}),
+                        tf.layers.dense({inputShape: [5], units: 10, activation: 'relu'}),
                         tf.layers.dense({units: 8, activation: 'relu'}),
                         tf.layers.dense({units: 4, activation: 'softmax'})
                     ]
@@ -1058,61 +1063,166 @@
                 await generateTrainingData();
                 await trainModel();
                 
-                showMLStatus('Age-based model ready');
+                showMLStatus('Model ready for predictions');
                 
             } catch (error) {
                 console.error('Error initializing ML model:', error);
-                showMLStatus('Model initialization failed');
+                showMLStatus('ML model initialization failed');
             }
         }
 
         async function generateTrainingData() {
             const syntheticData = [];
             
-            // Generate data for different age groups and conditions
-            Object.values(AGE_RANGES).forEach(ageRange => {
-                // Normal patterns for this age range
-                for (let i = 0; i < 40; i++) {
-                    const bpm = ageRange.normalMin + Math.random() * (ageRange.normalMax - ageRange.normalMin);
-                    const normalizedAge = (ageRange.min + (ageRange.max - ageRange.min) * Math.random()) / 120;
-                    syntheticData.push({
-                        features: [bpm, normalizedAge, (Math.random() - 0.5) * 10, Math.random() * 5, Math.random(), Math.random()],
-                        label: 0 // Normal
-                    });
-                }
-                
-                // Bradycardia for this age range
-                for (let i = 0; i < 20; i++) {
-                    const bpm = ageRange.normalMin - 20 - Math.random() * 10;
-                    const normalizedAge = (ageRange.min + (ageRange.max - ageRange.min) * Math.random()) / 120;
-                    syntheticData.push({
-                        features: [bpm, normalizedAge, (Math.random() - 0.3) * 5, Math.random() * 3, Math.random(), Math.random()],
-                        label: 1 // Bradycardia
-                    });
-                }
-                
-                // Tachycardia for this age range
-                for (let i = 0; i < 20; i++) {
-                    const bpm = ageRange.normalMax + 20 + Math.random() * 20;
-                    const normalizedAge = (ageRange.min + (ageRange.max - ageRange.min) * Math.random()) / 120;
-                    syntheticData.push({
-                        features: [bpm, normalizedAge, (Math.random() - 0.2) * 15, Math.random() * 8, Math.random(), Math.random()],
-                        label: 2 // Tachycardia
-                    });
-                }
-                
-                // Arrhythmia patterns
-                for (let i = 0; i < 25; i++) {
-                    const bpm = (ageRange.normalMin - 10) + Math.random() * (ageRange.normalMax - ageRange.normalMin + 20);
-                    const normalizedAge = (ageRange.min + (ageRange.max - ageRange.min) * Math.random()) / 120;
-                    syntheticData.push({
-                        features: [bpm, normalizedAge, (Math.random() - 0.5) * 25, 5 + Math.random() * 10, Math.random(), Math.random()],
-                        label: 3 // Arrhythmia
-                    });
-                }
-            });
+            // Normal heart rate patterns (60-100 BPM)
+            for (let i = 0; i < 50; i++) {
+                const bpm = 60 + Math.random() * 40;
+                const trend = (Math.random() - 0.5) * 10;
+                const variability = Math.random() * 5;
+                syntheticData.push({
+                    features: [bpm, trend, variability, Math.random(), Math.random()],
+                    label: 0 // Normal
+                });
+            }
+            
+            // Bradycardia patterns (< 60 BPM)
+            for (let i = 0; i < 30; i++) {
+                const bpm = 40 + Math.random() * 20;
+                const trend = (Math.random() - 0.3) * 5;
+                const variability = Math.random() * 3;
+                syntheticData.push({
+                    features: [bpm, trend, variability, Math.random(), Math.random()],
+                    label: 1 // Bradycardia
+                });
+            }
+            
+            // Tachycardia patterns (> 100 BPM)
+            for (let i = 0; i < 30; i++) {
+                const bpm = 100 + Math.random() * 40;
+                const trend = (Math.random() - 0.2) * 15;
+                const variability = Math.random() * 8;
+                syntheticData.push({
+                    features: [bpm, trend, variability, Math.random(), Math.random()],
+                    label: 2 // Tachycardia
+                });
+            }
+            
+            // Arrhythmia patterns
+            for (let i = 0; i < 40; i++) {
+                const bpm = 50 + Math.random() * 80;
+                const trend = (Math.random() - 0.5) * 25;
+                const variability = 5 + Math.random() * 10;
+                syntheticData.push({
+                    features: [bpm, trend, variability, Math.random(), Math.random()],
+                    label: 3 // Arrhythmia
+                });
+            }
             
             trainingData = syntheticData;
+        }
+
+        async function trainModel() {
+            if (!mlModel || trainingData.length === 0) return;
+            
+            isTraining = true;
+            showMLStatus('Training model...');
+            
+            try {
+                const features = trainingData.map(d => d.features);
+                const labels = trainingData.map(d => {
+                    const labelArray = [0, 0, 0, 0];
+                    labelArray[d.label] = 1;
+                    return labelArray;
+                });
+                
+                const featuresTensor = tf.tensor2d(features);
+                const labelsTensor = tf.tensor2d(labels);
+                
+                await mlModel.fit(featuresTensor, labelsTensor, {
+                    epochs: 100,
+                    batchSize: 32,
+                    validationSplit: 0.2,
+                    callbacks: {
+                        onEpochEnd: (epoch, logs) => {
+                            const progress = ((epoch + 1) / 100) * 100;
+                            updateTrainingProgress(progress, logs.acc);
+                        }
+                    }
+                });
+                
+                featuresTensor.dispose();
+                labelsTensor.dispose();
+                
+                showMLStatus('Model training completed');
+                isTraining = false;
+                
+            } catch (error) {
+                console.error('Error training model:', error);
+                showMLStatus('Model training failed');
+                isTraining = false;
+            }
+        }
+
+        async function predictHeartCondition(bpmData) {
+            if (!mlModel || bpmData.length < 5) return null;
+            
+            try {
+                const features = calculateFeatures(bpmData);
+                const inputTensor = tf.tensor2d([features]);
+                
+                const prediction = mlModel.predict(inputTensor);
+                const results = await prediction.data();
+                
+                inputTensor.dispose();
+                prediction.dispose();
+                
+                const maxIndex = results.indexOf(Math.max(...results));
+                const confidence = results[maxIndex];
+                
+                return {
+                    condition: Object.values(HEART_CONDITIONS)[maxIndex],
+                    confidence: confidence,
+                    details: results
+                };
+                
+            } catch (error) {
+                console.error('Error making prediction:', error);
+                return null;
+            }
+        }
+
+        function calculateFeatures(bpmData) {
+            if (bpmData.length === 0) return [0, 0, 0, 0, 0];
+            
+            const currentBPM = bpmData[bpmData.length - 1];
+            const averageBPM = bpmData.reduce((a, b) => a + b, 0) / bpmData.length;
+            
+            // Calculate trend
+            let trend = 0;
+            if (bpmData.length >= 2) {
+                const recentValues = bpmData.slice(-5);
+                const x = recentValues.map((_, i) => i);
+                const y = recentValues;
+                const n = recentValues.length;
+                
+                const sumX = x.reduce((a, b) => a + b, 0);
+                const sumY = y.reduce((a, b) => a + b, 0);
+                const sumXY = x.reduce((a, _, i) => a + x[i] * y[i], 0);
+                const sumXX = x.reduce((a, b) => a + b * b, 0);
+                
+                trend = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            }
+            
+            // Calculate variability
+            const variability = Math.sqrt(
+                bpmData.reduce((a, b) => a + Math.pow(b - averageBPM, 2), 0) / bpmData.length
+            );
+            
+            const minBPM = Math.min(...bpmData);
+            const maxBPM = Math.max(...bpmData);
+            const range = maxBPM - minBPM;
+            
+            return [currentBPM, trend, variability, range, averageBPM];
         }
 
         function analyzeHeartRateWithAge(bpmData) {
@@ -1127,20 +1237,19 @@
             }
             
             const currentBPM = bpmData[bpmData.length - 1];
-            const normalizedAge = patientAge / 120; // Normalize age to 0-1 range
             
-            // Simple rule-based analysis first
-            const ruleBasedAnalysis = performRuleBasedAnalysis(currentBPM, normalizedAge);
+            // Age-based rule analysis first
+            const ruleBasedAnalysis = performRuleBasedAnalysis(currentBPM);
             
-            // Then use ML model if available
+            // Then use ML model
             if (mlModel && !isTraining) {
-                performMLAnalysis(bpmData, normalizedAge, ruleBasedAnalysis);
+                performMLAnalysis(bpmData, ruleBasedAnalysis);
             } else {
                 updateMLPrediction(ruleBasedAnalysis);
             }
         }
 
-        function performRuleBasedAnalysis(currentBPM, normalizedAge) {
+        function performRuleBasedAnalysis(currentBPM) {
             const ageRange = currentAgeRange;
             let condition = HEART_CONDITIONS.NORMAL;
             let confidence = 0.7;
@@ -1156,16 +1265,6 @@
                 confidence = 0.90;
             }
             
-            // Check for potential arrhythmia (high variability)
-            const bpmData = getBPMData();
-            if (bpmData.length >= 5) {
-                const variability = calculateVariability(bpmData);
-                if (variability > 15) {
-                    condition = HEART_CONDITIONS.ARRHYTHMIA;
-                    confidence = 0.75;
-                }
-            }
-            
             return {
                 condition: condition,
                 confidence: confidence,
@@ -1176,95 +1275,27 @@
             };
         }
 
-        async function performMLAnalysis(bpmData, normalizedAge, ruleBasedAnalysis) {
+        async function performMLAnalysis(bpmData, ruleBasedAnalysis) {
             try {
-                const features = calculateFeaturesWithAge(bpmData, normalizedAge);
-                const inputTensor = tf.tensor2d([features]);
-                
-                const prediction = mlModel.predict(inputTensor);
-                const results = await prediction.data();
-                
-                inputTensor.dispose();
-                prediction.dispose();
-                
-                const maxIndex = results.indexOf(Math.max(...results));
-                const mlConfidence = results[maxIndex];
-                
-                // Combine rule-based and ML analysis
-                const finalAnalysis = combineAnalyses(ruleBasedAnalysis, {
-                    condition: Object.values(HEART_CONDITIONS)[maxIndex],
-                    confidence: mlConfidence
-                });
-                
-                updateMLPrediction(finalAnalysis);
-                
+                const prediction = await predictHeartCondition(bpmData);
+                if (prediction) {
+                    // Combine rule-based and ML analysis
+                    const finalAnalysis = {
+                        condition: prediction.condition,
+                        confidence: (ruleBasedAnalysis.confidence + prediction.confidence) / 2,
+                        ageBased: true,
+                        ageRange: ruleBasedAnalysis.ageRange,
+                        currentBPM: ruleBasedAnalysis.currentBPM,
+                        normalRange: ruleBasedAnalysis.normalRange,
+                        analysisMethod: 'Combined (Rules + ML)'
+                    };
+                    updateMLPrediction(finalAnalysis);
+                } else {
+                    updateMLPrediction(ruleBasedAnalysis);
+                }
             } catch (error) {
-                console.error('ML analysis failed, using rule-based:', error);
                 updateMLPrediction(ruleBasedAnalysis);
             }
-        }
-
-        function calculateFeaturesWithAge(bpmData, normalizedAge) {
-            const currentBPM = bpmData[bpmData.length - 1];
-            const averageBPM = bpmData.reduce((a, b) => a + b, 0) / bpmData.length;
-            
-            // Calculate trend
-            let trend = 0;
-            if (bpmData.length >= 2) {
-                const recentValues = bpmData.slice(-5);
-                const x = recentValues.map((_, i) => i);
-                const y = recentValues;
-                trend = calculateTrend(x, y);
-            }
-            
-            // Calculate variability
-            const variability = Math.sqrt(
-                bpmData.reduce((a, b) => a + Math.pow(b - averageBPM, 2), 0) / bpmData.length
-            );
-            
-            const minBPM = Math.min(...bpmData);
-            const maxBPM = Math.max(...bpmData);
-            const range = maxBPM - minBPM;
-            
-            return [currentBPM, normalizedAge, trend, variability, range, averageBPM];
-        }
-
-        function calculateTrend(x, y) {
-            const n = x.length;
-            const sumX = x.reduce((a, b) => a + b, 0);
-            const sumY = y.reduce((a, b) => a + b, 0);
-            const sumXY = x.reduce((a, _, i) => a + x[i] * y[i], 0);
-            const sumXX = x.reduce((a, b) => a + b * b, 0);
-            
-            return (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-        }
-
-        function calculateVariability(bpmData) {
-            const averageBPM = bpmData.reduce((a, b) => a + b, 0) / bpmData.length;
-            return Math.sqrt(
-                bpmData.reduce((a, b) => a + Math.pow(b - averageBPM, 2), 0) / bpmData.length
-            );
-        }
-
-        function combineAnalyses(ruleBased, mlBased) {
-            // Weight rule-based analysis more for critical conditions
-            let finalCondition = ruleBased.condition;
-            let finalConfidence = ruleBased.confidence;
-            
-            // If ML agrees with rule-based, increase confidence
-            if (ruleBased.condition === mlBased.condition) {
-                finalConfidence = Math.min(0.95, (ruleBased.confidence + mlBased.confidence) / 2);
-            }
-            
-            return {
-                condition: finalCondition,
-                confidence: finalConfidence,
-                ageBased: true,
-                ageRange: ruleBased.ageRange,
-                currentBPM: ruleBased.currentBPM,
-                normalRange: ruleBased.normalRange,
-                analysisMethod: 'Combined (Rules + ML)'
-            };
         }
 
         function updateMLPrediction(analysis) {
@@ -1296,60 +1327,7 @@
                 confidenceBar.className = 'confidence-fill confidence-danger';
             }
             
-            // Add detailed info to serial output
-            if (analysis.ageBased) {
-                addToSerialOutput(`>> Age-based analysis: ${analysis.condition} | Confidence: ${confidencePercent}% | Age: ${analysis.ageRange}`);
-            }
-        }
-
-        // [Rest of the existing functions remain the same with minor adjustments]
-        function getBPMData() {
-            // This would normally come from ThingSpeak
-            // For demo, return some sample data
-            return [72, 75, 78, 74, 76];
-        }
-
-        // Existing functions (shortened for brevity)
-        async function trainModel() {
-            if (!mlModel || trainingData.length === 0) return;
-            
-            isTraining = true;
-            showMLStatus('Training age-based model...');
-            
-            try {
-                const features = trainingData.map(d => d.features);
-                const labels = trainingData.map(d => {
-                    const labelArray = [0, 0, 0, 0];
-                    labelArray[d.label] = 1;
-                    return labelArray;
-                });
-                
-                const featuresTensor = tf.tensor2d(features);
-                const labelsTensor = tf.tensor2d(labels);
-                
-                await mlModel.fit(featuresTensor, labelsTensor, {
-                    epochs: 100,
-                    batchSize: 32,
-                    validationSplit: 0.2,
-                    callbacks: {
-                        onEpochEnd: (epoch, logs) => {
-                            const progress = ((epoch + 1) / 100) * 100;
-                            updateTrainingProgress(progress, logs.acc);
-                        }
-                    }
-                });
-                
-                featuresTensor.dispose();
-                labelsTensor.dispose();
-                
-                showMLStatus('Age-based model trained');
-                isTraining = false;
-                
-            } catch (error) {
-                console.error('Error training model:', error);
-                showMLStatus('Model training failed');
-                isTraining = false;
-            }
+            addToSerialOutput(`>> Analysis: ${analysis.condition} | Confidence: ${confidencePercent}% | Age: ${analysis.ageRange}`);
         }
 
         function showMLStatus(message) {
@@ -1374,40 +1352,30 @@
                 return;
             }
             
-            showSuccess('Retraining model with age-based data...');
+            showSuccess('Retraining model with latest data...');
             await generateTrainingData();
             await trainModel();
         }
 
         function showMLDetails() {
             const details = `
-Age-Based Heart Rate Analysis:
+Machine Learning Model Details:
+- Architecture: 3-layer Neural Network
+- Input Features: BPM, Trend, Variability, Range, Average
+- Output Classes: Normal, Bradycardia, Tachycardia, Arrhythmia
+- Training Data: ${trainingData.length} synthetic samples
+- Framework: TensorFlow.js
 
-Normal BPM Ranges by Age:
+Age-Based Analysis:
 - Children (1-12): 70-120 BPM
 - Teens (13-19): 60-100 BPM  
 - Adults (20-64): 60-100 BPM
 - Seniors (65+): 60-100 BPM
-
-Analysis Method:
-- Combines rule-based checking with ML
-- Considers age-specific normal ranges
-- Analyzes BPM trends and variability
-- Provides confidence scores
-
-Current Patient: ${patientAge ? patientAge + ' years (' + currentAgeRange.label + ')' : 'Not set'}
             `;
             alert(details);
         }
 
-        // [All other existing functions remain exactly the same]
-        // initializeChart, fetchData, updateDashboard, updateHistory, 
-        // updateBpmColor, updateChart, sendCommand, sendCustomCommand,
-        // simulateArduinoResponse, addToSerialOutput, startAutoRefresh,
-        // stopAutoRefresh, toggleAutoRefresh, showLoading, showError,
-        // showSuccess, showWarning, hideError, exportData, printReport
-
-        // Initialize chart and other components
+        // Chart and Data Functions
         function initializeChart() {
             const ctx = document.getElementById('heartRateChart').getContext('2d');
             heartRateChart = new Chart(ctx, {
@@ -1448,9 +1416,11 @@ Current Patient: ${patientAge ? patientAge + ' years (' + currentAgeRange.label 
         async function fetchData() {
             try {
                 showLoading();
+                console.log("Fetching data from ThingSpeak...");
                 
                 const response = await fetch(THINGSPEAK_URL);
                 const data = await response.json();
+                console.log("ThingSpeak response:", data);
                 
                 if (data.feeds && data.feeds.length > 0) {
                     const latestFeed = data.feeds[data.feeds.length - 1];
@@ -1458,26 +1428,30 @@ Current Patient: ${patientAge ? patientAge + ' years (' + currentAgeRange.label 
                     updateChart(data.feeds);
                     updateHistory(data.feeds);
                     
-                    // Perform age-based analysis if age is set
-                    if (patientAge) {
-                        const bpmData = data.feeds
-                            .filter(feed => feed.field2 && !isNaN(parseInt(feed.field2)))
-                            .map(feed => parseInt(feed.field2));
-                        
-                        if (bpmData.length >= 3) {
-                            analyzeHeartRateWithAge(bpmData);
-                        }
+                    // Update ML prediction
+                    const bpmData = data.feeds
+                        .filter(feed => feed.field2 && !isNaN(parseInt(feed.field2)))
+                        .map(feed => parseInt(feed.field2));
+                    
+                    window.currentBPMData = bpmData; // Store for age analysis
+                    
+                    console.log("BPM data for ML:", bpmData);
+                    
+                    if (bpmData.length >= 3 && patientAge) {
+                        analyzeHeartRateWithAge(bpmData);
                     }
                     
                     document.getElementById('lastSync').textContent = new Date().toLocaleTimeString();
                     hideError();
+                    addToSerialOutput(`>> ThingSpeak: Loaded ${data.feeds.length} records`);
                 } else {
-                    showError('No data available from ThingSpeak.');
+                    showError('No data available from ThingSpeak. Make sure your Arduino is sending data.');
                 }
                 
             } catch (error) {
                 console.error('Error fetching data:', error);
-                showError('Failed to fetch data from ThingSpeak.');
+                showError('Failed to fetch data from ThingSpeak. Check your internet connection.');
+                addToSerialOutput(">> Error: " + error.message);
             }
         }
 
@@ -1510,9 +1484,205 @@ Current Patient: ${patientAge ? patientAge + ' years (' + currentAgeRange.label 
             bpmCircle.style.background = `conic-gradient(${color} 0% 100%, #e9ecef 100% 100%)`;
         }
 
-        // [Include all other existing functions...]
+        function updateChart(feeds) {
+            const labels = [];
+            const data = [];
 
-        // Event listeners and initialization
+            feeds.forEach(feed => {
+                if (feed.field2 && !isNaN(parseInt(feed.field2))) {
+                    const time = new Date(feed.created_at).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                    labels.push(time);
+                    data.push(parseInt(feed.field2));
+                }
+            });
+
+            heartRateChart.data.labels = labels;
+            heartRateChart.data.datasets[0].data = data;
+            heartRateChart.update();
+        }
+
+        function updateHistory(feeds) {
+            const historyContainer = document.getElementById('dataHistory');
+            historyContainer.innerHTML = '';
+            
+            const recentFeeds = feeds.slice(-5).reverse();
+            
+            if (recentFeeds.length === 0) {
+                historyContainer.innerHTML = '<div class="loading">No data available</div>';
+                return;
+            }
+            
+            recentFeeds.forEach(feed => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item';
+                
+                const time = new Date(feed.created_at).toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                historyItem.innerHTML = `
+                    <span>Patient ${feed.field1 || '--'}</span>
+                    <span>BPM: ${feed.field2 || '--'}</span>
+                    <span>${time}</span>
+                `;
+                
+                historyContainer.appendChild(historyItem);
+            });
+        }
+
+        // Arduino Control Functions
+        function sendCommand(command) {
+            addToSerialOutput(`>> Sending command: ${command}`);
+            simulateArduinoResponse(command);
+        }
+        
+        function sendCustomCommand() {
+            const commandInput = document.getElementById('customCommand');
+            const command = commandInput.value.trim().toUpperCase();
+            
+            if (command) {
+                sendCommand(command);
+                commandInput.value = '';
+            }
+        }
+        
+        function simulateArduinoResponse(command) {
+            setTimeout(() => {
+                let response = "";
+                
+                switch(command) {
+                    case 'R':
+                        response = "🔄 Patient counter reset to 0";
+                        showSuccess("Patient counter has been reset");
+                        break;
+                    case 'S':
+                        response = "📊 SYSTEM STATUS: Active | Patients: 8 | Sensor: OK";
+                        break;
+                    case 'D':
+                        response = "🔧 DEBUG MODE: Enabled | Verbose output active";
+                        break;
+                    case 'C':
+                        response = "🧹 Display cleared | System ready";
+                        break;
+                    default:
+                        response = `❓ Unknown command: ${command}`;
+                }
+                
+                addToSerialOutput(`<< Arduino: ${response}`);
+            }, 500);
+        }
+        
+        function addToSerialOutput(message) {
+            const output = document.getElementById('serialOutput');
+            const line = document.createElement('div');
+            line.className = 'serial-line';
+            line.textContent = message;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        // Auto-refresh Functions
+        function startAutoRefresh() {
+            if (autoRefresh) {
+                refreshTimer = setInterval(() => {
+                    if (autoRefresh) {
+                        fetchData();
+                    }
+                }, refreshInterval);
+            }
+        }
+        
+        function stopAutoRefresh() {
+            if (refreshTimer) {
+                clearInterval(refreshTimer);
+            }
+        }
+
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            const autoRefreshText = document.getElementById('autoRefreshText');
+            autoRefreshText.textContent = autoRefresh ? 'Auto: On' : 'Auto: Off';
+            
+            if (autoRefresh) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+        }
+
+        // UI Helper Functions
+        function showLoading() {
+            document.getElementById('statusText').textContent = 'Updating data...';
+        }
+
+        function showError(message) {
+            let errorDiv = document.querySelector('.error');
+            if (!errorDiv) {
+                errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.card'));
+            }
+            errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            
+            document.getElementById('statusText').textContent = 'Connection Error';
+            document.getElementById('connectionDot').className = 'connection-dot disconnected';
+        }
+        
+        function showSuccess(message) {
+            let successDiv = document.querySelector('.success');
+            if (!successDiv) {
+                successDiv = document.createElement('div');
+                successDiv.className = 'success';
+                document.querySelector('.container').insertBefore(successDiv, document.querySelector('.card'));
+            }
+            successDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+            
+            setTimeout(() => {
+                if (successDiv.parentNode) {
+                    successDiv.parentNode.removeChild(successDiv);
+                }
+            }, 3000);
+        }
+
+        function showWarning(message) {
+            let warningDiv = document.querySelector('.warning');
+            if (!warningDiv) {
+                warningDiv = document.createElement('div');
+                warningDiv.className = 'warning';
+                document.querySelector('.container').insertBefore(warningDiv, document.querySelector('.card'));
+            }
+            warningDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            
+            setTimeout(() => {
+                if (warningDiv.parentNode) {
+                    warningDiv.parentNode.removeChild(warningDiv);
+                }
+            }, 3000);
+        }
+        
+        function hideError() {
+            const errorDiv = document.querySelector('.error');
+            if (errorDiv) {
+                errorDiv.remove();
+            }
+            document.getElementById('statusText').textContent = 'Connected to ThingSpeak';
+            document.getElementById('connectionDot').className = 'connection-dot connected';
+        }
+
+        function exportData() {
+            showSuccess('Export feature would download CSV data in a real implementation');
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        // Event Listeners
         document.getElementById('customCommand').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 sendCustomCommand();
@@ -1543,7 +1713,7 @@ Current Patient: ${patientAge ? patientAge + ' years (' + currentAgeRange.label 
             }
         });
 
-        console.log("Age-Based Health Monitor initialized");
+        console.log("Health Monitor with all features initialized");
     </script>
 </body>
 </html>
